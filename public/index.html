@@ -1,197 +1,215 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatRoom</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        /* Custom Scrollbar for a cleaner look */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-        .message-own { background-color: #dcfce7; border-radius: 12px 12px 0 12px; } /* Light Green */
-        .message-other { background-color: #f3f4f6; border-radius: 12px 12px 12px 0; } /* Light Gray */
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatroom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
 </head>
-<body class="bg-white text-black font-sans h-screen flex flex-col overflow-hidden">
+<body>
 
-    <!-- LOGIN SCREEN -->
-    <div id="login-screen" class="flex-1 flex flex-col items-center justify-center p-4">
-        <div class="w-full max-w-md bg-white border border-gray-200 p-8 shadow-lg rounded-lg">
-            <h1 class="text-3xl font-bold mb-2 text-black">ChatRoom</h1>
-            <p class="text-gray-500 mb-6 text-sm">Secure. Simple. Fast.</p>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium mb-1">Username</label>
-                    <input type="text" id="username-input" placeholder="Enter your name" class="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-black transition">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium mb-1">Room Code (Optional)</label>
-                    <input type="text" id="room-input" placeholder="Leave empty to create new" class="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-black transition">
-                </div>
-
-                <button onclick="joinChat()" class="w-full bg-black text-white font-bold py-3 rounded hover:bg-gray-800 transition">
-                    Join / Create Room
-                </button>
-            </div>
+  <!-- ═══ HOME SCREEN ═══ -->
+  <div id="screen-home" class="screen active">
+    <div class="home-layout">
+      <header class="home-header">
+        <div class="logo">
+          <span class="logo-bracket">[</span>
+          <span class="logo-text">CHATROOM</span>
+          <span class="logo-bracket">]</span>
         </div>
+        <p class="home-tagline">Instant rooms. No accounts. Just talk.</p>
+      </header>
+
+      <main class="home-main">
+        <!-- Create Room Card -->
+        <div class="card" id="card-create">
+          <div class="card-label">01 — CREATE</div>
+          <h2 class="card-title">Start a new room</h2>
+          <p class="card-desc">Generate a unique link and share it with anyone.</p>
+          <div class="form-group">
+            <input
+              type="text"
+              id="input-room-name"
+              class="input"
+              placeholder="Room name (e.g. Team Standup)"
+              maxlength="50"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="text"
+              id="input-create-username"
+              class="input"
+              placeholder="Your username"
+              maxlength="24"
+              autocomplete="off"
+            />
+          </div>
+          <button class="btn btn-primary" id="btn-create-room">
+            Create Room <span class="btn-arrow">→</span>
+          </button>
+          <div class="form-error" id="create-error"></div>
+        </div>
+
+        <div class="card-divider">
+          <span>or</span>
+        </div>
+
+        <!-- Join Room Card -->
+        <div class="card" id="card-join">
+          <div class="card-label">02 — JOIN</div>
+          <h2 class="card-title">Join with a link</h2>
+          <p class="card-desc">Paste a room link or enter the room ID directly.</p>
+          <div class="form-group">
+            <input
+              type="text"
+              id="input-room-link"
+              class="input"
+              placeholder="Room link or ID"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-group">
+            <input
+              type="text"
+              id="input-join-username"
+              class="input"
+              placeholder="Your username"
+              maxlength="24"
+              autocomplete="off"
+            />
+          </div>
+          <button class="btn btn-secondary" id="btn-join-room">
+            Join Room <span class="btn-arrow">→</span>
+          </button>
+          <div class="form-error" id="join-error"></div>
+        </div>
+      </main>
+
+      <footer class="home-footer">
+        <span>Max 10 users per room &nbsp;·&nbsp; No account required &nbsp;·&nbsp; Messages not stored</span>
+      </footer>
     </div>
+  </div>
 
-    <!-- CHAT SCREEN (Hidden by default) -->
-    <div id="chat-screen" class="hidden flex-1 flex flex-col h-full">
-        <!-- Header -->
-        <header class="bg-white border-b border-gray-200 p-4 flex justify-between items-center shadow-sm z-10">
-            <div>
-                <h2 class="font-bold text-lg">Room: <span id="display-room-id" class="font-mono text-green-600"></span></h2>
-                <p class="text-xs text-gray-500"><span id="user-count">0</span> users online</p>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="copyLink()" class="text-xs bg-green-100 text-green-800 px-3 py-2 rounded hover:bg-green-200 transition">
-                    Copy Link
-                </button>
-                <button onclick="leaveRoom()" class="text-xs bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 transition">
-                    Leave
-                </button>
-            </div>
-        </header>
-
-        <!-- Messages Area -->
-        <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-            <!-- Messages will appear here -->
-            <div class="text-center text-gray-400 text-sm mt-10">Welcome to the room. Say hello!</div>
-        </div>
-
-        <!-- Input Area -->
-        <div class="bg-white p-4 border-t border-gray-200">
-            <form id="chat-form" class="flex gap-2 max-w-4xl mx-auto">
-                <input type="text" id="message-input" autocomplete="off" placeholder="Type a message..." class="flex-1 p-3 border border-gray-300 rounded-full focus:outline-none focus:border-green-500 transition">
-                <button type="submit" class="bg-green-600 text-white p-3 rounded-full hover:bg-green-700 transition w-12 h-12 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                    </svg>
-                </button>
-            </form>
-        </div>
+  <!-- ═══ ROOM FULL SCREEN ═══ -->
+  <div id="screen-full" class="screen">
+    <div class="center-box">
+      <div class="status-icon">✗</div>
+      <h2 class="status-title">Room is Full</h2>
+      <p class="status-desc">This room has reached its maximum capacity of 10 users.<br />Try again later or create your own room.</p>
+      <button class="btn btn-primary" id="btn-go-home">Back to Home</button>
     </div>
+  </div>
 
-    <script>
-        const socket = io();
-        let myUsername = '';
-        let myRoomId = '';
+  <!-- ═══ NOT FOUND SCREEN ═══ -->
+  <div id="screen-notfound" class="screen">
+    <div class="center-box">
+      <div class="status-icon">?</div>
+      <h2 class="status-title">Room Not Found</h2>
+      <p class="status-desc">This room doesn't exist or has been closed.<br />All rooms close when everyone leaves.</p>
+      <button class="btn btn-primary" id="btn-notfound-home">Back to Home</button>
+    </div>
+  </div>
 
-        // Check URL params for room code
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomParam = urlParams.get('room');
-        if(roomParam) document.getElementById('room-input').value = roomParam;
+  <!-- ═══ JOIN SCREEN (for direct link access) ═══ -->
+  <div id="screen-join" class="screen">
+    <div class="center-box">
+      <div class="logo small">
+        <span class="logo-bracket">[</span>
+        <span class="logo-text">CHATROOM</span>
+        <span class="logo-bracket">]</span>
+      </div>
+      <h2 class="status-title" id="join-room-name">Joining room…</h2>
+      <p class="status-desc">Enter a username to join this room.</p>
+      <div class="form-group" style="width:100%;max-width:320px;margin:0 auto 12px;">
+        <input
+          type="text"
+          id="input-direct-username"
+          class="input"
+          placeholder="Your username"
+          maxlength="24"
+          autocomplete="off"
+        />
+      </div>
+      <button class="btn btn-primary" id="btn-direct-join">Join Room <span class="btn-arrow">→</span></button>
+      <div class="form-error" id="direct-join-error"></div>
+      <button class="btn btn-ghost" id="btn-join-home" style="margin-top:12px;">← Home</button>
+    </div>
+  </div>
 
-        function joinChat() {
-            const username = document.getElementById('username-input').value.trim();
-            let roomId = document.getElementById('room-input').value.trim();
+  <!-- ═══ CHAT SCREEN ═══ -->
+  <div id="screen-chat" class="screen">
+    <div class="chat-layout">
 
-            if (!username) return alert("Please enter a username");
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-room-name" id="sidebar-room-name">Room</div>
+          <div class="sidebar-room-capacity">
+            <span id="user-count">0</span>/10 users
+          </div>
+        </div>
 
-            // Generate room ID if empty
-            if (!roomId) {
-                roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-            }
+        <div class="sidebar-section-label">ACTIVE USERS</div>
+        <ul class="user-list" id="user-list">
+          <!-- populated by JS -->
+        </ul>
 
-            myUsername = username;
-            myRoomId = roomId;
+        <div class="sidebar-footer">
+          <button class="btn btn-ghost btn-sm" id="btn-copy-link" title="Copy room link">
+            ⎘ Copy Link
+          </button>
+          <button class="btn btn-danger btn-sm" id="btn-leave-room">
+            Leave →
+          </button>
+        </div>
+      </aside>
 
-            // Switch UI
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('chat-screen').classList.remove('hidden');
-            document.getElementById('chat-screen').classList.add('flex');
-            
-            document.getElementById('display-room-id').innerText = roomId;
+      <!-- Chat Area -->
+      <main class="chat-main">
+        <div class="chat-topbar">
+          <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle user list">☰</button>
+          <div class="chat-topbar-title" id="chat-topbar-title">Room</div>
+          <div class="chat-topbar-meta">
+            <span class="conn-indicator" id="conn-indicator">●</span>
+            <span id="conn-label">connected</span>
+          </div>
+        </div>
 
-            // Emit join event
-            socket.emit('join_room', { roomId, username });
-        }
+        <div class="messages-area" id="messages-area">
+          <div class="messages-inner" id="messages-inner">
+            <!-- messages rendered here -->
+          </div>
+        </div>
 
-        // Send Message
-        document.getElementById('chat-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            
-            if (message) {
-                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                socket.emit('send_message', { 
-                    roomId: myRoomId, 
-                    message, 
-                    username: myUsername, 
-                    time 
-                });
-                input.value = '';
-                input.focus();
-            }
-        });
+        <div class="chat-input-bar">
+          <input
+            type="text"
+            id="message-input"
+            class="input message-input"
+            placeholder="Type a message…"
+            maxlength="1000"
+            autocomplete="off"
+          />
+          <button class="btn btn-send" id="btn-send" aria-label="Send message">
+            <span>Send</span>
+            <span class="send-icon">↑</span>
+          </button>
+        </div>
+      </main>
 
-        // Receive Message
-        socket.on('receive_message', (data) => {
-            appendMessage(data, data.username === myUsername);
-        });
+    </div>
+  </div>
 
-        // User Joined
-        socket.on('user_joined', (data) => {
-            appendSystemMessage(`${data.username} joined the room.`);
-        });
+  <!-- Toast -->
+  <div id="toast" class="toast" aria-live="polite"></div>
 
-        // User Left
-        socket.on('user_left', (data) => {
-            appendSystemMessage(`${data.username} left the room.`);
-        });
-
-        // Update User Count
-        socket.on('room_users', (users) => {
-            document.getElementById('user-count').innerText = users.length;
-        });
-
-        function appendMessage(data, isOwn) {
-            const container = document.getElementById('messages-container');
-            const div = document.createElement('div');
-            
-            div.className = `flex flex-col max-w-[80%] ${isOwn ? 'self-end items-end' : 'self-start items-start'}`;
-            
-            const bubble = document.createElement('div');
-            bubble.className = `p-3 text-sm shadow-sm ${isOwn ? 'message-own' : 'message-other'}`;
-            bubble.innerHTML = `<p class="font-bold text-xs mb-1 ${isOwn ? 'text-green-800' : 'text-gray-600'}">${data.username}</p><p>${data.message}</p>`;
-            
-            const time = document.createElement('span');
-            time.className = "text-[10px] text-gray-400 mt-1 px-1";
-            time.innerText = data.time;
-
-            div.appendChild(bubble);
-            div.appendChild(time);
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function appendSystemMessage(msg) {
-            const container = document.getElementById('messages-container');
-            const div = document.createElement('div');
-            div.className = "text-center text-xs text-gray-400 my-2";
-            div.innerText = msg;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function copyLink() {
-            const url = `${window.location.origin}?room=${myRoomId}`;
-            navigator.clipboard.writeText(url).then(() => {
-                alert("Link copied to clipboard!");
-            });
-        }
-
-        function leaveRoom() {
-            location.reload();
-        }
-    </script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>
